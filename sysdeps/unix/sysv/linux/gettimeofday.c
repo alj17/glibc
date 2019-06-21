@@ -32,7 +32,35 @@
 int
 __gettimeofday (struct timeval *tv, struct timezone *tz)
 {
+#ifdef __ASSUME_TIME64_SYSCALLS
+  int ret;
+  struct __timespec64 now;
+
+  ret = INLINE_VSYSCALL (clock_gettime64, 2, CLOCK_REALTIME,
+                         &now);
+
+  /* Convert from timespec to timeval */
+  tv->tv_sec = now.tv_sec;
+  tv->tv_usec = now.tv_nsec / 1000;
+
+  return ret;
+#else
+# ifdef __NR_clock_gettime64
+  long int ret;
+  struct __timespec64 now;
+
+  ret = INLINE_VSYSCALL (clock_gettime64, 2, CLOCK_REALTIME,
+                         &now);
+
+  /* Convert from timespec to timeval */
+  tv->tv_sec = now.tv_sec;
+  tv->tv_usec = now.tv_nsec / 1000;
+
+  if (ret == 0 || errno != ENOSYS)
+    return ret;
+# endif
   return INLINE_VSYSCALL (gettimeofday, 2, tv, tz);
+#endif
 }
 libc_hidden_def (__gettimeofday)
 weak_alias (__gettimeofday, gettimeofday)
