@@ -24,6 +24,17 @@ int
 __nanosleep_nocancel (const struct timespec *requested_time,
 		      struct timespec *remaining)
 {
+#ifdef __ASSUME_TIME64_SYSCALLS
+  return INLINE_SYSCALL_CALL (clock_nanosleep_time64, CLOCK_REALTIME, 0,
+                         requested_time, remaining);
+#else
+# ifdef __NR_clock_nanosleep_time64
+  long int ret = INLINE_SYSCALL_CALL (clock_nanosleep_time64, CLOCK_REALTIME, 0,
+                                 requested_time, remaining);
+  if (ret == 0 || errno != ENOSYS)
+    return ret;
+# endif
   return INLINE_SYSCALL_CALL (nanosleep, requested_time, remaining);
+#endif
 }
 hidden_def (__nanosleep_nocancel)

@@ -20,12 +20,62 @@
 #include <sysdep-cancel.h>
 #include <not-cancel.h>
 
+#if defined(__ASSUME_TIME64_SYSCALLS) || defined(__NR_clock_nanosleep_time64)
+static int
+__nanosleep_time64_64 (const struct timespec *requested_time,
+                       struct timespec *remaining)
+{
+  return SYSCALL_CANCEL (clock_nanosleep_time64, CLOCK_REALTIME, 0,
+                         requested_time, remaining);
+}
+
+#if __TIMESIZE == 32
+struct timespec64
+{
+  long int tv_sec;   /* Seconds.  */
+  long int tv_nsec;  /* Nanoseconds.  */
+};
+
+static int
+__nanosleep_time64_32 (const struct timespec *requested_time,
+                       struct timespec *remaining)
+{
+  timespec64 ts;
+
+  long int ret = SYSCALL_CANCEL (clock_nanosleep_time64, CLOCK_REALTIME, 0,
+                                 requested_time, &ts);
+
+  remaining->tv_sec = ts.tv_sec;
+  remaining->tv_nsec = ts.tv_nsec;
+
+  return ret;
+}
+#endif
+#endif
+
 /* Pause execution for a number of nanoseconds.  */
 int
 __nanosleep (const struct timespec *requested_time,
 	     struct timespec *remaining)
 {
+#ifdef __ASSUME_TIME64_SYSCALLS
+  return __nanosleep_time64_64 (requested_time, remaining);
+#else
+# ifdef __NR_clock_nanosleep_time64
+#  if __TIMESIZE == 64
+  long int ret = __nanosleep_time64_64 (requested_time, remaining);
+
+  if (ret == 0 || errno != ENOSYS)
+    return ret;
+#  else
+  long int ret = __nanosleep_time64_32 (requested_time, remaining);
+
+  if (ret == 0 || errno != ENOSYS)
+    return ret;
+#  endif
+# endif
   return SYSCALL_CANCEL (nanosleep, requested_time, remaining);
+#endif
 }
 hidden_def (__nanosleep)
 weak_alias (__nanosleep, nanosleep)

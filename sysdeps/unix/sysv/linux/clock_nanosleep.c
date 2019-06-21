@@ -21,6 +21,13 @@
 #include <sysdep-cancel.h>
 #include "kernel-posix-cpu-timers.h"
 
+#if __TIMESIZE == 32
+struct timespec64
+{
+  long int tv_sec;   /* Seconds.  */
+  long int tv_nsec;  /* Nanoseconds.  */
+};
+#endif
 
 /* We can simply use the syscall.  The CPU clocks are not supported
    with this function.  */
@@ -28,6 +35,8 @@ int
 __clock_nanosleep (clockid_t clock_id, int flags, const struct timespec *req,
 		   struct timespec *rem)
 {
+  int r;
+
   if (clock_id == CLOCK_THREAD_CPUTIME_ID)
     return EINVAL;
   if (clock_id == CLOCK_PROCESS_CPUTIME_ID)
@@ -36,8 +45,37 @@ __clock_nanosleep (clockid_t clock_id, int flags, const struct timespec *req,
   /* If the call is interrupted by a signal handler or encounters an error,
      it returns a positive value similar to errno.  */
   INTERNAL_SYSCALL_DECL (err);
-  int r = INTERNAL_SYSCALL_CANCEL (clock_nanosleep, err, clock_id, flags,
-				   req, rem);
+
+#ifdef __ASSUME_TIME64_SYSCALLS
+  r = INTERNAL_SYSCALL_CANCEL (clock_nanosleep_time64, err, clock_id,
+                               flags, req, rem);
+#else
+# ifdef __NR_clock_nanosleep_time64
+#  if __TIMESIZE == 64
+  long int ret_64;
+
+  ret_64 = INTERNAL_SYSCALL_CANCEL (clock_nanosleep_time64, err, clock_id,
+                                    flags, req, rem);
+
+  if (ret_64 == 0 || errno != ENOSYS)
+    r = ret_64;
+#  else
+  timespec64 ts;
+
+  r = INTERNAL_SYSCALL_CANCEL (clock_nanosleep_time64, err,
+                               clock_id, flags, req,
+                               ts);
+
+  if (r == 0 || errno != ENOSYS) {
+    rem->tv_sec = ts.tv_sec;
+    rem->tv_nsec = ts.tv_nsec;
+    return r;
+  }
+#  endif
+# endif
+  r =  INTERNAL_SYSCALL_CANCEL (clock_nanosleep, err, req, rem);
+#endif
+
   return (INTERNAL_SYSCALL_ERROR_P (r, err)
 	  ? INTERNAL_SYSCALL_ERRNO (r, err) : 0);
 }

@@ -21,11 +21,50 @@
 
 #include "thrd_priv.h"
 
+#if __TIMESIZE == 32
+struct timespec64
+{
+  long int tv_sec;   /* Seconds.  */
+  long int tv_nsec;  /* Nanoseconds.  */
+};
+#endif
+
 int
 thrd_sleep (const struct timespec* time_point, struct timespec* remaining)
 {
   INTERNAL_SYSCALL_DECL (err);
-  int ret = INTERNAL_SYSCALL_CANCEL (nanosleep, err, time_point, remaining);
+  int ret;
+
+#ifdef __ASSUME_TIME64_SYSCALLS
+  ret = INTERNAL_SYSCALL_CANCEL (clock_nanosleep_time64, err, CLOCK_REALTIME,
+                                 0, time_point, remaining);
+#else
+# ifdef __NR_clock_nanosleep_time64
+#  if __TIMESIZE == 64
+  long int ret_64;
+
+  ret_64 = INTERNAL_SYSCALL_CANCEL (clock_nanosleep_time64, err, CLOCK_REALTIME,
+                                    0, time_point, remaining);
+
+  if (ret_64 == 0 || errno != ENOSYS)
+    ret = ret_64;
+#  else
+  timespec64 ts;
+
+  ret = INTERNAL_SYSCALL_CANCEL (clock_nanosleep_time64, err,
+                                 CLOCK_REALTIME, 0, time_point,
+                                 ts);
+
+  if (ret == 0 || errno != ENOSYS) {
+    remaining->tv_sec = ts.tv_sec;
+    remaining->tv_nsec = ts.tv_nsec;
+    return ret;
+  }
+#  endif
+# endif
+  ret =  INTERNAL_SYSCALL_CANCEL (nanosleep, err, time_point, remaining);
+#endif
+
   if (INTERNAL_SYSCALL_ERROR_P (ret, err))
     {
       /* C11 states thrd_sleep function returns -1 if it has been interrupted
