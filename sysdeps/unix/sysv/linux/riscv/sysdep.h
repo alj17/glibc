@@ -163,6 +163,10 @@
 # ifndef __NR_timer_settime
 #  define __NR_timer_settime __NR_timer_settime64
 # endif
+
+# ifndef __NR_clock_getres
+#  define __NR_clock_getres __NR_clock_getres_time64
+# endif
 #endif /* __riscv_xlen == 32 */
 
 #undef SYS_ify
