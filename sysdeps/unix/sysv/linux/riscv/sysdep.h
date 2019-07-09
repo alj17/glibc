@@ -171,6 +171,10 @@
 # ifndef __vdso_clock_getres
 #  define __vdso_clock_getres __vdso_clock_getres_time64
 # endif
+
+# ifndef __vdso_clock_gettime
+#  define __vdso_clock_gettime __vdso_clock_gettime64
+# endif
 #endif /* __riscv_xlen == 32 */
 
 #undef SYS_ify
