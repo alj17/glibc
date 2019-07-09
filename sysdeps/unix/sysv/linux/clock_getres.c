@@ -32,7 +32,11 @@
 int
 __clock_getres (clockid_t clock_id, struct timespec *res)
 {
+#ifndef __vdso_clock_getres
+   return INLINE_SYSCALL_CALL (clock_getres, clock_id, res);
+#else
   return INLINE_VSYSCALL (clock_getres, 2, clock_id, res);
+#endif
 }
 
 versioned_symbol (libc, __clock_getres, clock_getres, GLIBC_2_17);
