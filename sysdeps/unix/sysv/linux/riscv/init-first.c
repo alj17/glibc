@@ -43,11 +43,11 @@ _libc_vdso_platform_setup (void)
   PTR_MANGLE (p);
   VDSO_SYMBOL (gettimeofday) = p;
 
-  p = _dl_vdso_vsym ("__vdso_clock_gettime", &linux_version);
+  p = _dl_vdso_vsym ("__vdso_clock_gettime64", &linux_version);
   PTR_MANGLE (p);
   VDSO_SYMBOL (clock_gettime) = p;
 
-  p = _dl_vdso_vsym ("__vdso_clock_getres", &linux_version);
+  p = _dl_vdso_vsym ("__vdso_clock_getres_time64", &linux_version);
   PTR_MANGLE (p);
   VDSO_SYMBOL (clock_getres) = p;
 }
