@@ -26,16 +26,32 @@
 
 /* Set TS to calendar time based in time base BASE.  */
 int
-timespec_get (struct timespec *ts, int base)
+__timespec_get64 (struct __timespec64 *ts, int base)
 {
   switch (base)
     {
       int res;
       INTERNAL_SYSCALL_DECL (err);
     case TIME_UTC:
-      res = INTERNAL_VSYSCALL (clock_gettime, err, 2, CLOCK_REALTIME, ts);
+#ifdef __ASSUME_TIME64_SYSCALLS
+# ifndef __NR_clock_gettime64
+#  define __NR_clock_gettime64 __NR_clock_gettime
+#  define __vdso_clock_gettime64 __vdso_clock_gettime
+# endif
+      res = INTERNAL_VSYSCALL (clock_gettime64, err, 2, CLOCK_REALTIME, ts);
+#else
+# ifdef __NR_clock_gettime64
+      res = INTERNAL_VSYSCALL (clock_gettime64, err, 2, CLOCK_REALTIME, ts);
+# endif /* __NR_clock_gettime64 */
+      struct timespec ts32;
+
+      res = INTERNAL_VSYSCALL (clock_gettime, err, 2, CLOCK_REALTIME, &ts32);
+
+      if (res == 0 || !INTERNAL_SYSCALL_ERROR_P (res, err))
+        *ts = valid_timespec_to_timespec64 (ts32);
+#endif
       if (INTERNAL_SYSCALL_ERROR_P (res, err))
-	return 0;
+        return 0;
       break;
 
     default:
@@ -44,3 +60,26 @@ timespec_get (struct timespec *ts, int base)
 
   return base;
 }
+
+#if __TIMESIZE != 64
+int
+timespec_get (struct timespec *ts, int base)
+{
+  int ret;
+  struct __timespec64 ts64;
+
+  ret = __timespec_get64 (&ts64, base);
+
+  if (ret == 0 || !INTERNAL_SYSCALL_ERROR_P (ret, err))
+    {
+      *ts = valid_timespec64_to_timespec (ts664);
+      if (! in_time_t_range (ts64.tv_sec))
+        {
+          __set_errno (EOVERFLOW);
+          return -1;
+        }
+    }
+
+  return ret;
+}
+#endif
