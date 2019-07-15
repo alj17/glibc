@@ -27,10 +27,40 @@
 #include <sysdep-vdso.h>
 
 /* Get current value of CLOCK and store it in TP.  */
+
+#if __WORDSIZE == 32
+int
+__clock_gettime (clockid_t clock_id, struct timespec *tp)
+{
+   int ret;
+
+#ifdef __NR_clock_gettime64
+  struct __timespec64 tp64;
+  ret = INLINE_VSYSCALL (clock_gettime64, 2, clock_id, &tp64);
+
+  tp->tv_sec = tp64.tv_sec;
+  tp->tv_nsec = tp64.tv_nsec;
+
+  if (! in_time_t_range (tp->tv_sec))
+    {
+      __set_errno (EOVERFLOW);
+      return -1;
+    }
+#endif
+
+#ifndef __ASSUME_TIME64_SYSCALLS
+  ret = INLINE_VSYSCALL (clock_gettime, 2, clock_id, tp);
+#endif
+
+  return ret;
+}
+#else
 int
 __clock_gettime (clockid_t clock_id, struct timespec *tp)
 {
   return INLINE_VSYSCALL (clock_gettime, 2, clock_id, tp);
 }
+#endif
+
 weak_alias (__clock_gettime, clock_gettime)
 libc_hidden_def (__clock_gettime)
