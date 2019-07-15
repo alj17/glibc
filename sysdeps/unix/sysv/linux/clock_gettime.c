@@ -30,10 +30,57 @@
 
 /* Get current value of CLOCK and store it in TP.  */
 int
+__clock_gettime64 (clockid_t clock_id, struct __timespec64 *tp)
+{
+#ifdef __ASSUME_TIME64_SYSCALLS
+# ifndef __NR_clock_gettime64
+#  define __NR_clock_gettime64 __NR_clock_gettime
+#  define __vdso_clock_gettime64 __vdso_clock_gettime
+# endif
+   return INLINE_VSYSCALL (clock_gettime64, 2, clock_id, tp);
+#else
+   int ret;
+# ifdef __NR_clock_gettime64
+  ret = INLINE_VSYSCALL (clock_gettime64, 2, clock_id, tp);
+
+  if (ret == 0 || errno != ENOSYS)
+    return ret;
+# endif /* __NR_clock_gettime64 */
+  struct timespec tp32;
+
+  ret = INLINE_VSYSCALL (clock_gettime, 2, clock_id, &tp32);
+
+  if (ret == 0 || errno != ENOSYS)
+    *tp = valid_timespec_to_timespec64 (tp32);
+
+  return ret;
+#endif /* __ASSUME_TIME64_SYSCALLS */
+}
+
+#if __TIMESIZE != 64
+int
 __clock_gettime (clockid_t clock_id, struct timespec *tp)
 {
-  return INLINE_VSYSCALL (clock_gettime, 2, clock_id, tp);
+  int ret;
+  struct __timespec64 tp64;
+
+  ret = __clock_gettime64 (clock_id, &tp64);
+
+  if (ret == 0 || errno != ENOSYS)
+    {
+      if (! in_time_t_range (tp64.tv_sec))
+        {
+          __set_errno (EOVERFLOW);
+          return -1;
+        }
+
+      *tp = valid_timespec64_to_timespec (&tp64);
+
+      return ret;
+    }
 }
+#endif
+
 libc_hidden_def (__clock_gettime)
 
 versioned_symbol (libc, __clock_gettime, clock_gettime, GLIBC_2_17);
