@@ -24,6 +24,36 @@
 #endif
 #include <sysdep-vdso.h>
 
+
+#if __WORDSIZE == 32
+int
+__timespec_get (struct timespec *ts, int base)
+{
+   int ret;
+
+#ifdef __NR_clock_gettime64
+  struct __timespec64 ts64;
+  ret = INTERNAL_VSYSCALL (clock_gettime64, err, 2, CLOCK_REALTIME, &ts64);
+
+  ts->tv_sec = ts64.tv_sec;
+  ts->tv_nsec = ts64.tv_nsec;
+
+  if (! in_time_t_range (ts->tv_sec))
+    {
+      __set_errno (EOVERFLOW);
+      return -1;
+    }
+#endif
+
+#ifndef __ASSUME_TIME64_SYSCALLS
+  ret = INTERNAL_VSYSCALL (clock_gettime, err, 2, CLOCK_REALTIME, ts);
+#endif
+
+  return ret;
+}
+
+#else
+
 /* Set TS to calendar time based in time base BASE.  */
 int
 timespec_get (struct timespec *ts, int base)
@@ -33,9 +63,13 @@ timespec_get (struct timespec *ts, int base)
       int res;
       INTERNAL_SYSCALL_DECL (err);
     case TIME_UTC:
+#if __WORDSIZE == 32
+      res = __timespec_get (*ts, base);
+#else
       res = INTERNAL_VSYSCALL (clock_gettime, err, 2, CLOCK_REALTIME, ts);
+#endif
       if (INTERNAL_SYSCALL_ERROR_P (res, err))
-	return 0;
+        return 0;
       break;
 
     default:
@@ -44,3 +78,4 @@ timespec_get (struct timespec *ts, int base)
 
   return base;
 }
+#endif
