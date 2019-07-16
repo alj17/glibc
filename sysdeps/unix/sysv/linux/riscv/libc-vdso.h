@@ -28,7 +28,7 @@ extern long int (*VDSO_SYMBOL (getcpu)) (unsigned int *, unsigned int *, void *)
     attribute_hidden;
 extern long int (*VDSO_SYMBOL (gettimeofday)) (struct timeval *, void *)
     attribute_hidden;
-extern long int (*VDSO_SYMBOL (clock_gettime)) (clockid_t, struct timespec *)
+extern long int (*VDSO_SYMBOL (clock_gettime)) (clockid_t, struct __timespec64 *)
     attribute_hidden;
 extern long int (*VDSO_SYMBOL (clock_getres)) (clockid_t, struct timespec *)
     attribute_hidden;
