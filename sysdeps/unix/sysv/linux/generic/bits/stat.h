@@ -40,7 +40,10 @@
 /* Versions of the `xmknod' interface.  */
 #define _MKNOD_VER_LINUX	0
 
-#if defined __USE_FILE_OFFSET64
+#if defined __USE_FILE_OFFSET64 || defined __INO_T_MATCHES_INO64_T
+# if defined __INO_T_MATCHES_INO64_T && !defined __OFF_T_MATCHES_OFF64_T
+#  error "ino_t and off_t must both be the same type"
+# endif
 # define __field64(type, type64, name) type64 name
 #elif __WORDSIZE == 64
 # define __field64(type, type64, name) type name
