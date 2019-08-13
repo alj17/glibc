@@ -32,7 +32,7 @@
    using __USE_FILE_OFFSET64 only see the low 32 bits of some
    of the fields (the __fsblkcnt_t and __fsfilcnt_t fields).  */
 
-#if defined __USE_FILE_OFFSET64
+#if defined __USE_FILE_OFFSET64 || defined __STATFS_MATCHES_STATFS64
 # define __field64(type, type64, name) type64 name
 #elif __WORDSIZE == 64
 # define __field64(type, type64, name) type name
